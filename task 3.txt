@@ -1,0 +1,109 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import java.util.concurrent.*;
+
+public class QuizGame {
+    private static final int QUESTION_TIME_LIMIT = 10; // Seconds per question
+    private List<Question> questions;
+    private int score;
+
+    public QuizGame() {
+        this.questions = new ArrayList<>();
+        this.score = 0;
+    }
+
+    public void addQuestion(String question, List<String> options, int correctAnswerIndex) {
+        questions.add(new Question(question, options, correctAnswerIndex));
+    }
+
+    public void startQuiz() {
+        Scanner scanner = new Scanner(System.in);
+        int questionNumber = 1;
+
+        for (Question question : questions) {
+            System.out.println("Question " + questionNumber + ": " + question.getQuestion());
+            displayOptions(question.getOptions());
+
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            Future<String> future = executor.submit(() -> scanner.nextLine());
+            try {
+                String answer = future.get(QUESTION_TIME_LIMIT, TimeUnit.SECONDS);
+                boolean isCorrect = question.checkAnswer(answer);
+                if (isCorrect) {
+                    score++;
+                }
+                System.out.println(isCorrect ? "Correct!" : "Incorrect!");
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                System.out.println("Time's up!");
+            } finally {
+                future.cancel(true);
+                executor.shutdownNow();
+            }
+            questionNumber++;
+        }
+
+        displayResults();
+        scanner.close();
+    }
+
+    private void displayOptions(List<String> options) {
+        int optionNumber = 1;
+        for (String option : options) {
+            System.out.println(optionNumber + ". " + option);
+            optionNumber++;
+        }
+    }
+
+    private void displayResults() {
+        System.out.println("------------------------");
+        System.out.println("Quiz summary:");
+        System.out.println("Total questions: " + questions.size());
+        System.out.println("Correct answers: " + score);
+        System.out.println("Score: " + score + "/" + questions.size());
+        System.out.println("------------------------");
+    }
+
+    private static class Question {
+        private final String question;
+        private final List<String> options;
+        private final int correctAnswerIndex;
+
+        public Question(String question, List<String> options, int correctAnswerIndex) {
+            this.question = question;
+            this.options = options;
+            this.correctAnswerIndex = correctAnswerIndex;
+        }
+
+        public boolean checkAnswer(String answer) {
+            try {
+                int selectedOption = Integer.parseInt(answer);
+                return selectedOption == (correctAnswerIndex + 1); // Adjust for zero-based index
+            } catch (NumberFormatException e) {
+                return false; // If answer is not a number or out of range, treat as incorrect
+            }
+        }
+
+        public String getQuestion() {
+            return question;
+        }
+
+        public List<String> getOptions() {
+            return options;
+        }
+    }
+
+    public static void main(String[] args) {
+        QuizGame quiz = new QuizGame();
+
+        // Add your questions here
+        quiz.addQuestion(
+                "What is the capital of Maharashtra?",
+                List.of("Nagpur", "Mumbai", "Pune", "kolhapur"),
+                1 // Correct answer index is 1 (Paris)
+        );
+
+        quiz.startQuiz();
+    }
+}
+
